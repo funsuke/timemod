@@ -1,0 +1,258 @@
+//==============================================================
+// HSP処理時間計測 QueryPerformanceCounter repeat-loop
+//==============================================================
+#packopt name "hsp_timemod3"
+#packopt hide 1
+
+//==============================================================
+// タイム計測用
+// http://hsp.tv/play/pforum.php?mode=pastwch&num=44289
+// res NO.44377 たっくん氏
+//==============================================================
+#uselib "kernel32.dll"
+#func QPF "QueryPerformanceFrequency" int
+#func QPC "QueryPerformanceCounter" int
+
+#define ctype I64TODBL(%1) double(strf("%%I64u",%1)) //64bit整数を少数に変換
+ddim freq,1
+ddim before,1
+ddim after,1
+
+//==============================================================
+// 数学計算用
+//==============================================================
+#include "hspmath.as"
+
+//==============================================================
+// 配列の定義
+//==============================================================
+#define MAXN 100000
+dim x, MAXN
+startn = 500
+
+
+
+	goto *main
+
+
+
+//==============================================================
+// 配列比較
+//==============================================================
+// https://wiki.hsp.moe/%E5%B0%8F%E3%83%AF%E3%82%B6%EF%BC%8F%E6%9D%A1%E4%BB%B6%E6%BC%94%E7%AE%97%E5%AD%90.html
+#defcfunc which_int int _c, int _true, int _false
+	if _c : return _true
+	return _false
+#defcfunc intcmp int _i, int _j
+	return x(_i) - x(_j)
+
+//==============================================================
+// 配列の値を交換する
+//==============================================================
+;#define ctype swapmac(%1,%2) t=x(%1):x(%1)=x(%2):x(%2)=t	; 変数tがマクロTと競合
+#define ctype swapmac(%1,%2) tmp=x(%1):x(%1)=x(%2):x(%2)=tmp
+#deffunc swapfunc int _i, int _j
+	tmp = x(_i)
+	x(_i) = x(_j)
+	x(_j) = tmp
+	return
+
+//==============================================================
+// 大きい方を返す
+//==============================================================
+// https://wiki.hsp.moe/Macro%EF%BC%8Fmax.html
+#define ctype maxmac(%1,%2) ((%1)*((%1)>=(%2))+(%2)*((%1)<(%2)))
+#defcfunc maxfunc int _a, int _b
+	if _a > _b : return _a
+	return _b
+
+//==============================================================
+// 試行回数
+//==============================================================
+#define TRIALS 5
+
+//==============================================================
+// 計測用メインのマクロ
+//==============================================================
+#define ctype T(%1) mes strf("%%s (n=%%d)", %1, n)
+#define _M %tcode					\
+	s="%p":							\
+	mes strf(" %%-30s",s),1:		\
+	k=0:							\
+	timesum=0.0:					\
+	repeat TRIALS:					\
+		QPC varptr(before):			\
+		repeat n,1:					\
+			i=cnt:					\
+			di=double(i):			\
+			repeat n,1:				\
+				j=cnt:				\
+				%o:					\
+			loop:					\
+		loop:						\
+		QPC varptr(after):			\
+		timedif=(I64TODBL(after)-I64TODBL(before))/I64TODBL(freq):	\
+		mes strf("%%5.1f",timedif),1:	\
+		timesum+=timedif:			\
+	loop:							\
+	nans=timesum/(n*n*TRIALS):		\
+	mes strf("%%13.9f",nans):		\
+	pos 0
+#define ctype M(%1) %tcode %s1 : _M
+// スクリプトが2つある場合
+#define _M2 %tcode					\
+	s="%p:%p1":						\
+	mes strf(" %%-30s",s),1:		\
+	k=0:							\
+	timesum=0.0:					\
+	repeat TRIALS:					\
+		QPC varptr(before):			\
+		repeat n,1:					\
+			i=cnt:					\
+			di=double(i):			\
+			repeat n,1:				\
+				j=cnt:				\
+				%o:%o:				\
+			loop:					\
+		loop:						\
+		QPC varptr(after):			\
+		timedif=(I64TODBL(after)-I64TODBL(before))/I64TODBL(freq):	\
+		mes strf("%%5.1f",timedif),1:	\
+		timesum+=timedif:			\
+	loop:							\
+	nans=timesum/(n*n*TRIALS):		\
+	mes strf("%%13.9f",nans):		\
+	pos 0
+#define ctype M2(%1,%2) %tcode %s2 %s1 : _M2
+// 前の文がif文の場合
+#define _M3 %tcode					\
+	s="%p:%p1":						\
+	mes strf(" %%-30s",s),1:		\
+	k=0:							\
+	timesum=0.0:					\
+	repeat TRIALS:					\
+		QPC varptr(before):			\
+		repeat n,1:					\
+			i=cnt:					\
+			di=double(i):			\
+			repeat n,1:				\
+				j=cnt:				\
+				%o{%o}				\
+			loop:					\
+		loop:						\
+		QPC varptr(after):			\
+		timedif=(I64TODBL(after)-I64TODBL(before))/I64TODBL(freq):	\
+		mes strf("%%5.1f",timedif),1:	\
+		timesum+=timedif:			\
+	loop:							\
+	nans=timesum/(n*n*TRIALS):		\
+	mes strf("%%13.9f",nans):		\
+	pos 0
+#define ctype M3(%1,%2) %tcode %s2 %s1 : _M3
+// 2つのパラメータが必要な命令などの場合
+#define _M4 %tcode					\
+	s="%p,%p1":						\
+	mes strf(" %%-30s",s),1:		\
+	k=0:							\
+	timesum=0.0:					\
+	repeat TRIALS:					\
+		QPC varptr(before):			\
+		repeat n,1:					\
+			i=cnt:					\
+			di=double(i):			\
+			repeat n,1:				\
+				j=cnt:				\
+				%o,%o:				\
+			loop:					\
+		loop:						\
+		QPC varptr(after):			\
+		timedif=(I64TODBL(after)-I64TODBL(before))/I64TODBL(freq):	\
+		mes strf("%%5.1f",timedif),1:	\
+		timesum+=timedif:			\
+	loop:							\
+	nans=timesum/(n*n*TRIALS):		\
+	mes strf("%%13.9f",nans):		\
+	pos 0
+#define ctype M4(%1,%2) %tcode %s2 %s1 : _M4
+
+
+////////////////////////////////////////////////////////////////
+// MAIN
+////////////////////////////////////////////////////////////////
+*main
+	// ウィンドウサイズ変更
+	screen 0, , 960, , 0, 0
+	title "HSP処理時間計測 QueryPerformanceCounter repeat-loop"
+	// 確認
+	QPF varptr(freq)
+	if stat == 0 : dialog "ハードウェアが高分解能パフォーマンスカウンタをサポートしていません。", 1 : end
+	//
+	i=0:j=0:k=0
+	ddim di,1
+	ddim dj,1
+	ddim dk,1
+	ddim timedif,1
+	ddim timesum,1
+	ddim nans,1
+	ddim globalbefore,1
+	ddim globalafter,1
+	foreach x
+		x(cnt) = rnd(32768)	;32768=RND_MAX
+	loop
+	QPC varptr(globalbefore)
+	n=startn
+	//
+	mes strf("HSP 処理時間計測, n=%d",n)
+	T("整数値計算")
+	M(/**/)
+	M(k = i + j)
+	M(k = i - j)
+	M(k = i * j)
+	M(k = i / j)
+	M(k = i \ j)
+	M(k = i & j)
+	M(k = i | j)
+	T("実数値計算")
+	M(dj=1.0*j)
+	M2(dj=1.0*j,dk = di + dj)
+	M2(dj=1.0*j,dk = di - dj)
+	M2(dj=1.0*j,dk = di * dj)
+	M2(dj=1.0*j,dk = di / dj)
+	T("配列操作")
+	M(k = i + j)
+	M(k = x(i) + j)
+	M(k = i + x(j))
+	M(k = x(i) + x(j))
+	T("比較")
+	M3(if (i < j), k++)
+	M3(if (x(i) < x(j)), k++)
+	T("配列の比較と交換処理")
+	M(k = which_int(x(i)<x(j),-1,1))
+	M(k = intcmp(i,j))
+	M(swapmac(i,j))
+	M4(swapfunc i,j)
+	T("最大値取得、マクロと関数")
+	M(k = which_int(i>j,i,j))
+	M(k = maxmac(i,j))
+	M(k = maxfunc(i,j))
+	n = startn / 5
+	T("数学関数")
+	M(dk = di+j)
+	M(dk = j+di)
+	M( k = rnd(32768))
+	M(dk = sqrt(di+j))
+	M(dk = sin(di+j))
+	M(dk = sinh(di+j))
+	M(dk = asin(di+j))
+	M(dk = cos(di+j))
+	M(dk = tan(di+j))
+	n = startn / 10;
+	T("メモリ確保");
+	M4(alloc s,16)
+	M4(alloc s,100)
+	M4(alloc s,2000)
+	//
+	QPC varptr(globalafter)
+	mes strf("  全体処理時間: %4.2f秒\n",(I64TODBL(globalafter)-I64TODBL(globalbefore))/I64TODBL(freq))
+	mes "お疲れ様でした"
+	stop
